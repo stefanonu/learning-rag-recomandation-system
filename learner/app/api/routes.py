@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, Depends, HTTPException
+from fastapi import APIRouter, UploadFile, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
 import os
 import faiss
@@ -14,6 +14,8 @@ from app.db.models import Document
 from app.rag.embedding import embedder_singleton
 from app.rag.pptx_parser import parse_pptx
 from app.core.config import get_settings
+from app.db.models import ProcessedRequest
+import hashlib
 
 router = APIRouter()
 
@@ -87,3 +89,34 @@ async def query_rag(request: QueryRequest, db: Session = Depends(get_db)):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+from app.db.models import ProcessedRequest
+import hashlib
+
+@router.post("/process-request")
+def process_request(
+    request: dict = Body(...),
+    db: Session = Depends(get_db)
+):
+    request_id = request.get("request_id")
+    payload = request.get("payload")
+
+    existing = db.query(ProcessedRequest).filter_by(request_id=request_id).first()
+    if existing:
+        return {"status": "duplicate", "worker_id": existing.worker_id, "result": existing.result}
+
+    worker_id = int(hashlib.md5(request_id.encode()).hexdigest(), 16) % 3
+
+    result = f"Processed by worker {worker_id}"
+
+    # 4. Save to DB
+    db.add(ProcessedRequest(
+        request_id=request_id,
+        payload=payload,
+        worker_id=worker_id,
+        result=result
+    ))
+    db.commit()
+
+    return {"status": "processed", "worker_id": worker_id, "result": result}

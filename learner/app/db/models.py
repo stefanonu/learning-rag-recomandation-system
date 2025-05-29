@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, DateTime, Integer, ForeignKey
+from sqlalchemy import Column, String, DateTime, Integer, ForeignKey, JSON
 from uuid import uuid4
 from datetime import datetime
 from app.db.base import Base
@@ -29,3 +29,13 @@ class QueryLog(Base):
     answer = Column(String, nullable=False)
     timestamp = Column(DateTime, default=datetime.utcnow)
 
+
+class ProcessedRequest(Base):
+    __tablename__ = "processed_requests"
+
+    id = Column(Integer, primary_key=True, index=True)
+    request_id = Column(String, unique=True, nullable=False)
+    payload = Column(JSON, nullable=False)
+    worker_id = Column(Integer, nullable=False)
+    result = Column(String, nullable=True)
+    timestamp = Column(DateTime, default=datetime.utcnow)
